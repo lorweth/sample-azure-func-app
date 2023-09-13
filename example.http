@@ -1,0 +1,5 @@
+### GET request local testing
+GET http://localhost:7071/api/HelloAzure
+
+### GET panic request local testing
+GET http://localhost:7071/api/test/panic

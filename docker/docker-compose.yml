@@ -1,0 +1,30 @@
+version: "3.7"
+
+services:
+    func:
+        container_name: "azure_func"
+        image: virsavik/az-function-tool:latest
+        platform: linux/amd64
+        ports:
+            - "7071:7071"
+        environment:
+            - ARM_CLIENT_ID=${ARM_CLIENT_ID}
+            - ARM_CLIENT_SECRET=${ARM_CLIENT_SECRET}
+            - ARM_SUBSCRIPTION_ID=${ARM_SUBSCRIPTION_ID}
+            - ARM_TENANT_ID=${ARM_TENANT_ID}
+        volumes:
+            - "./build:/api"
+
+    builder:
+        container_name: "api_builder"
+        image: golang:1.20-alpine3.18
+        platform: linux/amd64
+        working_dir: "/api"
+        environment:
+            - GOCACHE=/root/.cache/go-build
+        volumes:
+            - ".:/api"
+            - "gocache:/root/.cache/go-build"
+
+volumes:
+    gocache:
