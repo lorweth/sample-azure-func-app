@@ -21,6 +21,11 @@ new:
 build-tool-img:
 	@docker build -f docker/tool.Dockerfile -t virsavik/az-function-tool:latest .
 
+publish:
+	@${FUNC} sh -c "az login --service-principal -u $$ARM_CLIENT_ID --password $$ARM_CLIENT_SECRET --tenant $$ARM_TENANT_ID \
+	 && cd build \
+	 && func azure functionapp publish $$PROJECT-$$ENVIRONMENT-function-app"
+
 build-binaries:
 	@${DOCKER_COMPOSE} run --rm builder sh -c "GOOS=linux GOARCH=amd64 go build -o ./build/handler/ ./cmd/serverd"
 
