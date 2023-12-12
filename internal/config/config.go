@@ -3,6 +3,7 @@ package config
 import (
 	"errors"
 	"fmt"
+	"log"
 	"os"
 	"strconv"
 	"strings"
@@ -19,9 +20,15 @@ func (c WebConfig) Address() string {
 	return fmt.Sprintf("%s%v", c.Host, c.Port)
 }
 
+type OtelConfig struct {
+	ServiceName      string
+	ExporterEndpoint string
+}
+
 // AppConfig representing an application configuration
 type AppConfig struct {
 	Web             WebConfig
+	Otel            OtelConfig
 	ShutdownTimeout time.Duration
 }
 
@@ -32,10 +39,24 @@ func ReadConfigFromEnv() (AppConfig, error) {
 		return AppConfig{}, errors.New("port is invalid")
 	}
 
+	otelServiceName := strings.TrimSpace(os.Getenv("OTEL_SERVICE_NAME"))
+	if otelServiceName == "" {
+		log.Print("open telemetry service name have not been set")
+	}
+
+	otelExporterEndpoint := strings.TrimSpace(os.Getenv("OTEL_EXPORTER_OTLP_ENDPOINT"))
+	if otelExporterEndpoint == "" {
+		log.Print("open telemetry exporter endpoint have not been set")
+	}
+
 	return AppConfig{
 		Web: WebConfig{
 			Host: "0.0.0.0",
 			Port: fmt.Sprintf(":%v", port),
+		},
+		Otel: OtelConfig{
+			ServiceName:      otelServiceName,
+			ExporterEndpoint: otelExporterEndpoint,
 		},
 	}, nil
 }
