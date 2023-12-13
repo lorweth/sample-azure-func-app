@@ -40,8 +40,10 @@ resource "azurerm_linux_function_app" "function_app" {
     storage_account_access_key = azurerm_storage_account.storage_account.primary_access_key
 
     app_settings = {
-        application_insights_connection_string = azurerm_application_insights.application_insights.connection_string
-        application_insights_key = azurerm_application_insights.application_insights.instrumentation_key
+        APPLICATIONINSIGHTS_CONNECTION_STRING = azurerm_application_insights.application_insights.connection_string
+        APPINSIGHTS_INSTRUMENTATIONKEY = azurerm_application_insights.application_insights.instrumentation_key
+        OTEL_SERVICE_NAME = "${var.project}-${var.environment}-function-app"
+        OTEL_EXPORTER_OTLP_ENDPOINT = azurerm_application_insights.application_insights.connection_string
     }
 
     site_config {}
