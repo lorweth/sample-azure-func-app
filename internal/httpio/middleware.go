@@ -86,7 +86,7 @@ func Middleware(log logger.Logger) func(next http.Handler) http.Handler {
 					logger.String("user_agent.original", r.UserAgent()),
 					logger.Int("http.response.status_code", ww.Status()),
 					logger.Int("http.response.body.size", ww.BytesWritten()),
-					logger.String("trace.id", trace.SpanFromContext(r.Context()).SpanContext().TraceID().String()),
+					logger.String("trace.id", trace.SpanFromContext(ctx).SpanContext().TraceID().String()),
 				)
 
 				reqLogger.Infof("Served")
@@ -94,7 +94,7 @@ func Middleware(log logger.Logger) func(next http.Handler) http.Handler {
 
 			// Handle the original request by calling the next handler in the chain,
 			// passing the wrapped response writer and the modified request context.
-			next.ServeHTTP(ww, r.WithContext(logger.SetInCtx(r.Context(), log)))
+			next.ServeHTTP(ww, r.WithContext(logger.SetInCtx(ctx, log)))
 
 			// Add the status code as an attribute to the span.
 			span.SetAttributes(
