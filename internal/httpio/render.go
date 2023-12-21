@@ -3,6 +3,8 @@ package httpio
 import (
 	"encoding/json"
 	"net/http"
+
+	"github.com/virsavik/sample-azure-func-app/internal/logger"
 )
 
 // Response represents an HTTP response structure with a generic body 'T'.
@@ -29,6 +31,6 @@ func WriteJSON[T any](w http.ResponseWriter, r *http.Request, data Response[T]) 
 
 	// Encode the response body to JSON and write it to the response writer
 	if err := json.NewEncoder(w).Encode(data.Body); err != nil {
-		// TODO: log error
+		logger.FromCtx(r.Context()).Errorf(err, "json encode error")
 	}
 }

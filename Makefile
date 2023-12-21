@@ -2,11 +2,11 @@
 include .env.dev
 export
 
-DOCKER_COMPOSE = docker-compose --file docker/docker-compose.yml --project-directory . --project-name ${PROJECT}
+DOCKER_COMPOSE = docker-compose --file docker/docker-compose.yml --project-directory . --project-name ${PROJECT_NAME}_${ENVIRONMENT}
 
 # Run azure functions core tool
-.PHONY: setup start new
-setup: build-tool-img build-binaries
+.PHONY: setup start new azurite mongodb jaeger teardown
+setup: build-tool-img build-binaries mongodb collector jaeger azurite
 
 start:
 	@echo "Start azure function tool..."
@@ -15,6 +15,21 @@ start:
 
 new:
 	@${DOCKER_COMPOSE} run --rm func sh -c "func new"
+
+azurite:
+	@${DOCKER_COMPOSE} up -d azurite
+
+mongodb:
+	@${DOCKER_COMPOSE} up -d mongodb
+
+collector:
+	@${DOCKER_COMPOSE} up -d collector
+
+jaeger:
+	@${DOCKER_COMPOSE} up -d jaeger
+
+teardown:
+	@${DOCKER_COMPOSE} down
 
 # Helper target
 .PHONY: build-tool-img build-api-img build-binaries

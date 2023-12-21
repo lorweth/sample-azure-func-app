@@ -2,13 +2,14 @@ package httpio
 
 import (
 	"fmt"
+	"net/http"
+	"runtime/debug"
+
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/propagation"
 	semconv "go.opentelemetry.io/otel/semconv/v1.21.0"
 	"go.opentelemetry.io/otel/trace"
-	"net/http"
-	"runtime/debug"
 
 	"github.com/go-chi/chi/v5/middleware"
 
@@ -64,6 +65,9 @@ func Middleware(log logger.Logger) func(next http.Handler) http.Handler {
 
 					// Capture and log the entire stack trace along with the error details.
 					log.Errorf(err, "caught a panic, stacktrace: %s", debug.Stack())
+
+					// Record panic error
+					span.RecordError(err, trace.WithStackTrace(true))
 
 					// Respond with a 500 Internal Server Error and log any encoding errors.
 					WriteJSON(ww, r, Response[Message]{

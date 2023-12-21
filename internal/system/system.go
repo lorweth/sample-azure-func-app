@@ -4,13 +4,20 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log"
+	"net/http"
+
+	"github.com/Azure/azure-sdk-for-go/sdk/storage/azblob"
+	"github.com/Azure/azure-sdk-for-go/sdk/storage/azqueue"
+
+	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc"
 	"go.opentelemetry.io/otel/propagation"
 	"go.opentelemetry.io/otel/sdk/resource"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	semconv "go.opentelemetry.io/otel/semconv/v1.21.0"
-	"net/http"
 
 	"github.com/go-chi/chi/v5"
 	"golang.org/x/sync/errgroup"
@@ -21,11 +28,14 @@ import (
 )
 
 type System struct {
-	cfg    config.AppConfig
-	logger logger.Logger
-	mux    *chi.Mux
-	waiter waiter.Waiter
-	tp     *sdktrace.TracerProvider
+	cfg     config.AppConfig
+	logger  logger.Logger
+	mux     *chi.Mux
+	db      *mongo.Client
+	storage *azblob.Client
+	queue   *azqueue.QueueClient
+	waiter  waiter.Waiter
+	tp      *sdktrace.TracerProvider
 }
 
 func New(cfg config.AppConfig) (*System, error) {
@@ -38,6 +48,18 @@ func New(cfg config.AppConfig) (*System, error) {
 	s.initWaiter()
 
 	if err := s.initOpenTelemetry(); err != nil {
+		return nil, err
+	}
+
+	if err := s.initDB(); err != nil {
+		return nil, err
+	}
+
+	if err := s.initBlobStorage(); err != nil {
+		return nil, err
+	}
+
+	if err := s.initStorageQueue(); err != nil {
 		return nil, err
 	}
 
@@ -62,6 +84,56 @@ func (s *System) initLogger() {
 
 func (s *System) Logger() logger.Logger {
 	return s.logger
+}
+
+func (s *System) initDB() error {
+	client, err := mongo.Connect(context.Background(), options.Client().ApplyURI(s.Config().MongoDB.URI))
+	if err != nil {
+		return err
+	}
+
+	s.db = client
+
+	s.Waiter().Cleanup(func() {
+		if err := client.Disconnect(context.Background()); err != nil {
+			log.Printf("mongdo DB disconnect error: %v", err)
+		}
+	})
+
+	return nil
+}
+
+func (s *System) DB() *mongo.Client {
+	return s.db
+}
+
+func (s *System) initBlobStorage() error {
+	client, err := azblob.NewClientFromConnectionString(s.Config().AzBlob.ConnectionString, nil)
+	if err != nil {
+		return fmt.Errorf("create azure blob client error: %w", err)
+	}
+
+	s.storage = client
+	return nil
+}
+
+func (s *System) BlobStorage() *azblob.Client {
+	return s.storage
+}
+
+func (s *System) initStorageQueue() error {
+	client, err := azqueue.NewQueueClientFromConnectionString(s.Config().AzQueue.ConnectionString, s.Config().AzQueue.QueueName, nil)
+	if err != nil {
+		return fmt.Errorf("create azure queue client error: %w", err)
+	}
+
+	s.queue = client
+
+	return nil
+}
+
+func (s *System) StorageQueue() *azqueue.QueueClient {
+	return s.queue
 }
 
 // initOpenTelemetry Initializes an OTLP exporter, and configures the corresponding trace

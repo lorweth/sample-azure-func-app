@@ -4,8 +4,12 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/virsavik/sample-azure-func-app/internal/adapter/queue/message"
+	"github.com/virsavik/sample-azure-func-app/internal/adapter/repository"
 	rest "github.com/virsavik/sample-azure-func-app/internal/adapter/rest/v1"
+	"github.com/virsavik/sample-azure-func-app/internal/adapter/storage"
 	"github.com/virsavik/sample-azure-func-app/internal/config"
+	"github.com/virsavik/sample-azure-func-app/internal/core/services"
 	"github.com/virsavik/sample-azure-func-app/internal/httpio"
 	"github.com/virsavik/sample-azure-func-app/internal/system"
 )
@@ -30,7 +34,14 @@ func run() error {
 		return err
 	}
 
-	hdl := rest.New()
+	// Setup module
+	repo := repository.New(s.DB().Database(s.Config().MongoDB.DBName))
+	publisher := message.New(s.StorageQueue())
+	blobStorage := storage.New(s.BlobStorage(), s.Config().AzBlob.ContainerName)
+
+	svc := services.New(repo.Files(), publisher, blobStorage)
+
+	hdl := rest.New(svc)
 
 	setupRouter(s, hdl)
 
@@ -58,7 +69,8 @@ func run() error {
 func setupRouter(svc system.Service, hdl rest.Handler) {
 	svc.Mux().Use(httpio.Middleware(svc.Logger()))
 
-	svc.Mux().Get("/api/HelloAzure", hdl.Ping())
+	svc.Mux().Get("/test/ping", hdl.Ping())
+	svc.Mux().Get("/test/panic", hdl.Panic())
 
-	svc.Mux().Get("/api/test/panic", hdl.Panic())
+	svc.Mux().Post("/api/UploadFile", hdl.Upload())
 }

@@ -2,7 +2,7 @@ version: "3.7"
 
 services:
     func:
-        container_name: "azure_func"
+        container_name: ${PROJECT_NAME}_${ENVIRONMENT}-func
         image: virsavik/az-function-tool:latest
         platform: linux/amd64
         ports:
@@ -14,17 +14,72 @@ services:
             - ARM_TENANT_ID=${ARM_TENANT_ID}
         volumes:
             - "./build:/api"
+        networks:
+            - local-network
 
     builder:
-        container_name: "api_builder"
+        container_name: ${PROJECT_NAME}_${ENVIRONMENT}-builder
         image: golang:1.20-alpine3.18
         platform: linux/amd64
         working_dir: "/api"
-        environment:
-            - GOCACHE=/root/.cache/go-build
         volumes:
             - ".:/api"
             - "gocache:/root/.cache/go-build"
+        networks:
+            - local-network
+
+    azurite:
+        container_name: ${PROJECT_NAME}_${ENVIRONMENT}-azurite
+        image: mcr.microsoft.com/azure-storage/azurite:3.29.0
+        ports:
+            - "10000:10000"
+            - "10001:10001"
+            - "10002:10002"
+        volumes:
+            - "./azurite:/data"
+        networks:
+            - local-network
+
+    mongodb:
+        container_name: ${PROJECT_NAME}_${ENVIRONMENT}-mongodb
+        image: mongo:7.0.4
+        ports:
+            - "27017:27017"
+        environment:
+            MONGO_INITDB_ROOT_USERNAME: ${PROJECT_NAME}
+            MONGO_INITDB_ROOT_PASSWORD: root
+        networks:
+            - local-network
+
+    collector:
+        container_name: ${PROJECT_NAME}_${ENVIRONMENT}-collector
+        hostname: collector
+        image: otel/opentelemetry-collector-contrib:0.60.0 # otel/opentelemetry-collector:0.87.0
+        command: [ "--config=/etc/otel-config.yml" ]
+        ports:
+            - "1888:1888" # pprof extension
+            - "8888:8888" # Prometheus' metrics exposed by the collector
+            - "8889:8889" # Prometheus exporter metrics
+            - "13133:13133" # health_check extension
+            - "4317:4317" # OTLP gRPC receiver
+            - "4318:4318" # OTLP http receiver
+        volumes:
+            - ./configs/otel/otel-config.yml:/etc/otel-config.yml
+        networks:
+            - local-network
+
+    jaeger:
+        container_name: ${PROJECT_NAME}_${ENVIRONMENT}-jaeger
+        hostname: jaeger
+        ports:
+            - "8081:16686"
+            - "14250"
+        image: jaegertracing/all-in-one:latest
+        networks:
+            - local-network
 
 volumes:
     gocache:
+
+networks:
+    local-network:
